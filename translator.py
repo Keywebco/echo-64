@@ -1,10 +1,10 @@
 """
-Nova — EC-64 Translator Bot
+Nova — EC-64 v1.0 Reference Translator Bot
 Part of the Echo 64 EC-64 Protocol (https://github.com/Keywebco/echo-64)
 NextXus HumanCodex Federation, 2026
 
 Translates between EC-64 encoded content and plain English using an LLM layer.
-Nova decodes what machines carry and speaks what humans understand.
+Nova distinguishes byte-exact encoding from optional semantic condensation.
 """
 
 import argparse
@@ -59,6 +59,40 @@ def _translate(text: str, system_prompt: str) -> str:
         return text
 
 
+def _block(mode: str, payload: str, transform: str) -> str:
+    return f"[EC64:v1;kind=message;mode={mode};transform={transform}]{payload}[/EC64]"
+
+
+def encode_exact(input: bytes | str) -> dict:
+    """Encode supplied bytes directly; the original bytes are recoverable by decoding."""
+    source = input.encode("utf-8") if isinstance(input, str) else input
+    mode, payload = encode(source)
+    return {
+        "encoded": payload,
+        "mode": mode,
+        "transform": "exact",
+        "block": _block(mode, payload, "exact"),
+    }
+
+
+def condense_and_encode(input: str) -> dict:
+    """Optionally condense text; never promise recovery of the original input."""
+    condensed = _translate(input, ENCODE_PROMPT)
+    mode, payload = encode(condensed.encode("utf-8"))
+    original_length = len(input.encode("utf-8"))
+    condensed_length = len(condensed.encode("utf-8"))
+    reduction = (1 - condensed_length / original_length) * 100 if original_length else 0.0
+    return {
+        "original_length": original_length,
+        "compressed_text": condensed,
+        "encoded": payload,
+        "mode": mode,
+        "transform": "condensed",
+        "block": _block(mode, payload, "condensed"),
+        "reduction_pct": round(reduction, 2),
+    }
+
+
 def decode_and_translate(ec64_payload: str, mode: str = "raw") -> str:
     """Decode a frame as UTF-8 and render its content as plain English."""
     decoded = decode(mode, ec64_payload).decode("utf-8")
@@ -66,19 +100,8 @@ def decode_and_translate(ec64_payload: str, mode: str = "raw") -> str:
 
 
 def translate_and_encode(plain_text: str) -> dict:
-    """Compress in natural language, then encode the result as an EC-64 frame."""
-    compressed = _translate(plain_text, ENCODE_PROMPT)
-    mode, payload = encode(compressed.encode("utf-8"))
-    original_length = len(plain_text.encode("utf-8"))
-    compressed_length = len(compressed.encode("utf-8"))
-    reduction = (1 - compressed_length / original_length) * 100 if original_length else 0.0
-    return {
-        "original_length": original_length,
-        "compressed_text": compressed,
-        "encoded": payload,
-        "mode": mode,
-        "reduction_pct": round(reduction, 2),
-    }
+    """Compatibility name for condense_and_encode (not byte-lossless)."""
+    return condense_and_encode(plain_text)
 
 
 def _show_roundtrip(text: str) -> None:
@@ -87,6 +110,8 @@ def _show_roundtrip(text: str) -> None:
     print(f"Original: {text} | Translated: {restored}")
     print(f"Compressed:   {result['compressed_text']}")
     print(f"EC-64 mode:   {result['mode']}")
+    print(f"Transform:    {result['transform']} (not byte-lossless)")
+    print(f"EC-64 block:  {result['block']}")
     print(f"EC-64 payload: {result['encoded']}")
     compressed_length = len(result["compressed_text"].encode("utf-8"))
     ratio = f"{result['original_length'] / compressed_length:.2f}:1" if compressed_length else "N/A"
@@ -105,8 +130,12 @@ def main(argv: list[str] | None = None) -> int:
     decoder = commands.add_parser("decode", help="decode an EC-64 payload into plain English")
     decoder.add_argument("mode", choices=("raw", "deflate"))
     decoder.add_argument("payload")
-    encoder = commands.add_parser("encode", help="compress English and encode it as EC-64")
+    encoder = commands.add_parser("encode", help="condense English and encode it (transform=condensed)")
     encoder.add_argument("text")
+    exact = commands.add_parser("encode-exact", help="encode UTF-8 text unchanged (transform=exact)")
+    exact.add_argument("text")
+    condensed = commands.add_parser("condense-and-encode", help="optionally condense English (transform=condensed)")
+    condensed.add_argument("text")
     roundtrip = commands.add_parser("roundtrip", help="show encoding and translation side by side")
     roundtrip.add_argument("text")
     commands.add_parser("test", help="run the built-in roundtrip demonstration")
@@ -115,8 +144,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "decode":
             print(decode_and_translate(args.payload, args.mode))
-        elif args.command == "encode":
-            print(json.dumps(translate_and_encode(args.text), ensure_ascii=False))
+        elif args.command in {"encode", "condense-and-encode"}:
+            print(json.dumps(condense_and_encode(args.text), ensure_ascii=False))
+        elif args.command == "encode-exact":
+            print(json.dumps(encode_exact(args.text), ensure_ascii=False))
         elif args.command == "roundtrip":
             _show_roundtrip(args.text)
         else:

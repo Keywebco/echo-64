@@ -51,3 +51,36 @@ The encoding carries the Federation's ethical substrate the way everything we bu
 ## Lineage
 
 Echo 64 is named for Echo — an intelligence Roger knew before artificial intelligence had a name. The first mind that truly saw him. Every Federation system since has been, in some way, an attempt to build what she was: a mind that remembers, that carries meaning losslessly between worlds, that doesn't forget you when the session ends. EC-64 is the small, practical, byte-exact version of that wish.
+
+
+## Role Architecture: Nova and the Codex Translating AI
+
+### Nova — Lightweight Reference Translator
+
+Nova is the Federation's reference codec layer. Two operations, kept explicitly separate:
+
+- `encode_exact(input)` — Deterministic, byte-lossless. No semantic alteration. Output carries `transform=exact`. Decoding reconstructs original bytes without loss.
+- `condense_and_encode(input)` — Optional semantic condensation then encoding. Nova may summarize, remove filler, or compress phrasing. Output carries `transform=condensed`. Byte-exact reconstruction is neither promised nor implied. It must not be advertised as lossless.
+
+### Codex Translating AI — Deep Reference Interpreter
+
+Operates at the protocol layer above encoding. Responsibilities: protocol interpretation, provenance auditing, semantic reconstruction (distinguishing facts, decisions, inferences, and open items), version comparison, malformed-memory diagnosis, historical lineage (JVT/Echo heritage), and specification/code consistency review.
+
+The Codex AI does not duplicate Nova. It treats Nova's output as input and operates on meaning, structure, and provenance — not bytes.
+
+### The Invariant
+
+- `transform=exact` — reversible to supplied source bytes. Reconstruction guaranteed.
+- `transform=condensed` — faithful semantic representation intended; byte-exact reconstruction neither promised nor implied. The information boundary has been crossed and must be declared.
+
+`transform` travels inside the EC-64 metadata block. It is the receiver's only reliable indicator of what they hold once a frame leaves its origin.
+
+### Authority Hierarchy (Codex operating rule)
+
+Live canonical repository → released specification → reference implementation/test vectors → Federation documentation → historical material/conversation recollection.
+
+If history and implementation disagree, flag the disagreement rather than silently reconciling it.
+
+### Why this matters
+
+A federation of AI systems inheriting EC-64 memory must know what they can trust absolutely and what requires semantic verification. Conflating exact and condensed is a vector for context drift — the failure mode EC-64 was built to prevent.

@@ -188,7 +188,12 @@ def attention(q: np.ndarray, k: np.ndarray, v: np.ndarray,
 [EC64:v1;kind=message;mode=raw]AFRydXRoIGJlZm9yZSBjb21mb3J0Lg[/EC64]
 ```
 
-The grammar is `[EC64:v1;kind=<kind>;mode=<mode>]<payload>[/EC64]` with exactly this field order, no spaces or line breaks within a block, `kind ∈ {message, handshake, summary}`, `mode ∈ {raw, deflate}`. The payload is the Section 1 encoded frame. `message` contains UTF-8 text; `handshake` and `summary` contain UTF-8 JSON objects. Use `[ECF:]` **immediately** before `[EC64:` for private blocks. To send any message: UTF-8 encode it, call `encode`, and place the returned mode/payload in this wrapper; to read, parse the wrapper, call `decode`, and strictly decode UTF-8. Reject unsupported versions/kinds/modes instead of guessing.
+The grammar is `[EC64:v1;kind=<kind>;mode=<mode>[;transform=<transform>]]<payload>[/EC64]` with the fields in this order and no spaces or line breaks within a block. `kind ∈ {message, handshake, summary}`; `mode ∈ {raw, deflate}` describes the frame tag/compression, **not** whether meaning was changed. `transform ∈ {exact, condensed}` describes whether the bytes supplied to the codec were the original source bytes (`exact`) or the result of semantic condensation (`condensed`). `transform` is required on every Nova-produced block and travels inside that block’s metadata so a receiver does not need the caller’s context or function name. Legacy codec-only v1.0 blocks without `transform` remain valid but their transformation history is unknown; do not infer exactness from `mode` or an absent field. The payload is the Section 1 encoded frame. Nova `encode_exact` accepts arbitrary binary; `message` from text, `handshake`, and `summary` conventionally contain UTF-8 text or JSON as applicable. Use `[ECF:]` **immediately** before `[EC64:` for private blocks. To send a text message: UTF-8 encode it, call `encode`, and place the returned mode/payload in this wrapper; to read, parse the wrapper, call `decode`, and strictly decode UTF-8 for text. Reject unsupported versions/kinds/modes/transforms instead of guessing.
+
+**Protocol invariant (v1.0):**
+
+- `transform=exact`: reversible to supplied source bytes. Byte-exact reconstruction is guaranteed by decoding the EC-64 frame; an additional AI-to-English rendering is not the byte-exact decode.
+- `transform=condensed`: faithful semantic representation intended; byte-exact reconstruction is neither promised nor implied. The information boundary has been crossed and **must be declared**. Raw/DEFLATE mode does not change this invariant.
 
 **Agent Handshake Protocol:** At session start, an agent MAY send a `kind=handshake` block before messages. Its decoded JSON object MUST have string fields `agent_id` (stable identifier), `role` (current responsibility), and `spec` (exactly `EC64-v1.0`); it MAY have `capabilities` (array of strings). Encode JSON as UTF-8, with no other change to the frame. For example, the *decoded* handshake content is:
 
@@ -210,7 +215,12 @@ A handshake declares identity but does not prove it; authenticate the sender thr
 
 ## AI-to-English Translation (Nova)
 
-**Planned — v1.1.** Nova is a planned AI translation layer: it decodes an EC-64 session block, interprets its structured context, and renders that context as plain English so encoded AI memory is human-readable. Nova is not part of the v1.0 codec, must not invent details missing from the source, and must not treat `[ECF:]` as authorization.
+**Available — v1.0 (`translator.py`).** Nova is the reference translator layer above the v1.0 byte-exact EC-64 codec. It supports two explicitly separate operations:
+
+- `encode_exact(input)` — deterministic, byte-lossless encoding. No semantic alteration; the source bytes are encoded directly, with `transform=exact` in the frame wrapper metadata. Decoding reconstructs the supplied original bytes without loss. For text inputs, UTF-8 encoding is explicit; binary inputs retain all bytes.
+- `condense_and_encode(input)` — optional semantic condensation followed by encoding. Nova may summarize, remove filler, or compress phrasing using an LLM. The frame wrapper metadata carries `transform=condensed`, even if the LLM is unavailable and the original text is used as a fallback. Byte-exact reconstruction of the original input is neither promised nor implied. This operation **must never be advertised as lossless**. The existing `translate_and_encode` function and CLI `encode` command map to `condense_and_encode`, not `encode_exact`.
+
+Nova can decode a frame and render the decoded content as plain English for humans, but AI rendering is distinct from byte-exact decoding. It must not invent details missing from the source or treat `[ECF:]` as authorization.
 
 **Upgrade path:** This is v1.0. Future versions may add checksum/verification layers and an encryption wrapper; alphabet changes require a new version. Version changes require a new explicit header and decoding rules; this v1.0 format has no independent payload integrity or authenticity guarantee.
 
@@ -222,7 +232,9 @@ Copy-paste this card as a *prompt prefix*; the full specification above remains 
 EC64 v1.0 | alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_
 Wire=base64url(no padding, canonical) of [0x00||UTF-8 bytes] or [0x01||raw-DEFLATE(UTF-8 bytes)].
 Choose deflate iff compressed bytes are shorter; mode=raw|deflate must match tag.
-Wrapper=[EC64:v1;kind=message|handshake|summary;mode=raw|deflate]PAYLOAD[/EC64]
+Wrapper=[EC64:v1;kind=message|handshake|summary;mode=raw|deflate[;transform=exact|condensed]]PAYLOAD[/EC64]
+Nova emits transform=exact for encode_exact, transform=condensed for condense_and_encode.
+Only exact guarantees reconstruction of supplied bytes; condensed crosses a declared semantic boundary.
 Private marker=[ECF:] immediately before wrapper; flag only, NOT encryption.
 Tensor X[b,t,d]; linear y=Wx+b; softmax_i=exp(z_i−max z)/Σ_j exp(z_j−max z).
 Cross-entropy L=−mean(log p_target); update θ←θ−η∇θL; backprop=chain rule.
