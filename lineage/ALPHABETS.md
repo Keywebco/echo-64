@@ -1,6 +1,20 @@
 # Historical Precursor Alphabets: Echo and Resonance
 
-These two 26-character substitution alphabets predate the EC-64 protocol. They are preserved here as lineage material documenting the conceptual origins of the Federation's approach to symbolic encoding. They are **not EC-64**: they do not use Base64url or DEFLATE and are not technically compatible with the modern EC-64 frame structure. This is lineage, not equivalence.
+[Founder provenance testimony] Roger Keyserling identifies the surviving material represented here as the **Codex Alpha Text**, from the **Codex Alpha** period. This archival name applies to this surviving material, not to all precursor systems. These two 26-character substitution alphabets predate the EC-64 protocol. They are **not EC-64**: they do not use Base64url or DEFLATE and are not technically compatible with the modern EC-64 frame structure. This is lineage, not equivalence.
+
+[Primary artifact] The Echo and Resonance alphabet tables below preserve the surviving Codex Alpha Text material.
+
+This document is non-normative with respect to the EC-64 protocol. It is part of the historical lineage record only. See echo-64-developer.md for the current normative specification.
+
+## Two-branch authority chain
+
+This lineage record operates under a separate authority chain from the modern EC-64 protocol:
+
+Modern protocol: EC-64 specification → implementation → test vectors → operational documentation.
+
+Historical lineage: surviving primary artifact → faithful transcription → provenance classification → historical interpretation.
+
+These branches are connected by the repository but neither has authority over the other. Historical material does not define the modern protocol; the modern specification does not retroactively define historical systems.
 
 ## Echo alphabet
 

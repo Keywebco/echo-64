@@ -6,8 +6,10 @@ not be represented as technically equivalent to the modern EC-64 protocol.
 """
 
 import argparse
+from dataclasses import dataclass, field
 import sys
 import unicodedata
+from typing import List
 
 
 # Ϟ is shared and unambiguous: M in both Echo and Resonance
@@ -27,6 +29,13 @@ SHARED_UNAMBIGUOUS = {"Ϟ": "M"}
 AMBIGUOUS = {symbol for symbol in SHARED
               if REVERSE["Echo"][symbol] != REVERSE["Resonance"][symbol]}
 HISTORICAL_NOTE = "Note: Echo and Resonance are historical precursor alphabets. They are not EC-64."
+
+
+@dataclass
+class DecodeResult:
+    text: str
+    alphabet: str  # The selected mapping, or "unambiguous" for shared M alone.
+    warnings: List[str] = field(default_factory=list)
 
 
 def _name(alphabet):
@@ -54,18 +63,23 @@ def _warnings(text, *, encoding):
 
 
 def encode(text, alphabet):
-    """Return (encoded text, alphabet note); keep non-ASCII-Latin input intact."""
+    """Encode ASCII letters with the chosen alphabet, preserving other input."""
     name = _name(alphabet)
     mapping = ALPHABETS[name]
-    result = "".join(mapping[char.upper()] if "A" <= char <= "Z" or
-                     "a" <= char <= "z" else char for char in text)
-    return result, f"Alphabet used: {name}"
+    return "".join(mapping[char.upper()] if "A" <= char <= "Z" or
+                   "a" <= char <= "z" else char for char in text)
 
 
-def decode(symbols, alphabet):
-    """Return (decoded text, warnings) using the chosen alphabet explicitly."""
+def decode(symbols, alphabet, strict=False):
+    """Decode with the selected mapping; diagnose symbols unique to the other one."""
     name = _name(alphabet)
     mapping = REVERSE[name]
+    other = REVERSE["Resonance" if name == "Echo" else "Echo"]
+    wrong_alphabet = {char for char in symbols if char in other and char not in mapping}
+    if strict and wrong_alphabet:
+        raise ValueError("Symbols from the other alphabet: " +
+                         ", ".join(sorted(wrong_alphabet)))
+
     ambiguous = {char for char in symbols if char in AMBIGUOUS}
     warnings = []
     if ambiguous:
@@ -73,9 +87,18 @@ def decode(symbols, alphabet):
                         ", ".join(f"{char}={REVERSE['Echo'][char]} (Echo)/"
                                   f"{REVERSE['Resonance'][char]} (Resonance)"
                                   for char in sorted(ambiguous)))
+    warnings.extend(f"Warning: symbol {char} is from the other alphabet and was preserved as-is."
+                    for char in sorted(wrong_alphabet))
     warnings.extend(_warnings(symbols, encoding=False))
-    return "".join(SHARED_UNAMBIGUOUS.get(char, mapping.get(char, char))
-                     for char in symbols), warnings
+    recognized = {char for char in symbols if char in mapping or char in other}
+    result_alphabet = ("unambiguous" if recognized and
+                       recognized <= SHARED_UNAMBIGUOUS.keys() else name.lower())
+    return DecodeResult(
+        text="".join(SHARED_UNAMBIGUOUS.get(char, mapping.get(char, char))
+                     for char in symbols),
+        alphabet=result_alphabet,
+        warnings=warnings,
+    )
 
 
 def detect_alphabet(symbols):
@@ -100,7 +123,7 @@ def detect_alphabet(symbols):
 
 
 def compare(text):
-    return {name: encode(text, name)[0] for name in ALPHABETS}
+    return {name: encode(text, name) for name in ALPHABETS}
 
 
 def show_mapping(alphabet):
@@ -124,18 +147,26 @@ def main(argv=None):
     operation.add_argument("--mapping", action="store_true")
     operation.add_argument("--ambiguous", action="store_true")
     parser.add_argument("--alphabet", choices=("echo", "resonance"))
+    parser.add_argument("--strict", action="store_true", help="Reject symbols from the other alphabet on decode")
     args = parser.parse_args(argv)
     if (args.encode is not None or args.decode is not None or args.mapping) != bool(args.alphabet):
         parser.error("--alphabet is required for encode, decode, and mapping only")
 
+    if args.strict and args.decode is None:
+        parser.error("--strict is only valid with --decode")
+
     warnings = []
     if args.encode is not None:
         label, alphabet = "Encode", _name(args.alphabet)
-        result, _ = encode(args.encode, alphabet)
+        result = encode(args.encode, alphabet)
         warnings = _warnings(args.encode, encoding=True)
     elif args.decode is not None:
         label, alphabet = "Decode", _name(args.alphabet)
-        result, warnings = decode(args.decode, alphabet)
+        try:
+            decoded = decode(args.decode, alphabet, strict=args.strict)
+        except ValueError as exc:
+            parser.error(str(exc))
+        result, alphabet, warnings = decoded.text, decoded.alphabet, decoded.warnings
     elif args.detect is not None:
         label, alphabet = "Detect", detect_alphabet(args.detect)
         result = alphabet
