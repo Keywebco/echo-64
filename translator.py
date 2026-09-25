@@ -114,4 +114,18 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "decode":
-            print(decode_and_translate(args.payload, args.mo
+            print(decode_and_translate(args.payload, args.mode))
+        elif args.command == "encode":
+            print(json.dumps(translate_and_encode(args.text), ensure_ascii=False))
+        elif args.command == "roundtrip":
+            _show_roundtrip(args.text)
+        else:
+            roundtrip_test()
+    except (ValueError, UnicodeError) as exc:
+        print(f"EC-64 error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
