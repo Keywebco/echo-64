@@ -79,11 +79,19 @@ def decode(symbols, alphabet):
 
 
 def detect_alphabet(symbols):
-    """Return a definite name only if exactly one alphabet fits all symbols."""
+    """Return a definite name only if exactly one alphabet fits all symbols.
+
+    Returns "Unambiguous (M)" when the only recognized symbols are the shared
+    unambiguous Ϟ (M in both alphabets); "Ambiguous" only on a real conflict.
+    """
     recognized = {char for char in symbols if char in REVERSE["Echo"] or
                   char in REVERSE["Resonance"]}
     if not recognized:
         return "Unknown"
+    # Ϟ means M in both alphabets: a string whose only recognized symbols are
+    # shared-unambiguous symbols is unambiguous, not an alphabet conflict.
+    if recognized <= SHARED_UNAMBIGUOUS.keys():
+        return "Unambiguous (M)"
     candidates = {name for name, mapping in REVERSE.items()
                   if recognized <= mapping.keys()}
     if len(candidates) == 1:

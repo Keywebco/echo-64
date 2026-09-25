@@ -70,12 +70,21 @@ class TestSharedUnambiguousM:
         assert "Ϟ" not in translator.AMBIGUOUS
         assert len(AMBIGUOUS_CASES) == 15
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="Current detect_alphabet() calls shared Ϟ Ambiguous despite identical M meanings",
-    )
-    def test_m_only_detection_is_not_ambiguous(self):
-        assert translator.detect_alphabet("ϞϞ") != "Ambiguous"
+    @pytest.mark.parametrize("symbols", ("Ϟ", "ϞϞ", "Ϟ Ϟ\nϞ"))
+    def test_m_only_detection_is_not_ambiguous(self, symbols):
+        assert translator.detect_alphabet(symbols) != "Ambiguous"
+        assert translator.detect_alphabet(symbols) == "Unambiguous (M)"
+
+    def test_m_only_detect_cli_reports_no_conflict(self, capsys):
+        assert translator.main(["--detect", "ϞϞ"]) == 0
+        output = capsys.readouterr().out
+        assert "Alphabet: Unambiguous (M)" in output
+        assert "Alphabet cannot be identified uniquely" not in output
+
+    def test_m_does_not_mask_real_detection(self):
+        assert translator.detect_alphabet("Ϟ⟁") == "Echo"
+        assert translator.detect_alphabet("Ϟ░") == "Resonance"
+        assert translator.detect_alphabet("Ϟ✶") == "Ambiguous"
 
 
 class TestNonAlphabeticPreservation:
