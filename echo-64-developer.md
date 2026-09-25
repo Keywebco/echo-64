@@ -188,19 +188,47 @@ def attention(q: np.ndarray, k: np.ndarray, v: np.ndarray,
 [EC64:v1;kind=message;mode=raw]AFRydXRoIGJlZm9yZSBjb21mb3J0Lg[/EC64]
 ```
 
-The grammar is `[EC64:v1;kind=<kind>;mode=<mode>]<payload>[/EC64]` with exactly this field order, no spaces or line breaks within a block, `kind âˆˆ {message, handshake, summary}`, `mode âˆˆÜ˜]ËY›]_XˆH^[ØY\ÈHÙXİ[ÛˆH[˜ÛÙYœ˜[YKˆY\ÜØYÙXÛÛZ[œÈU‹N^È[™ÚZÙX[™İ[[X\XÛÛZ[ˆU‹N”ÓÓˆØš™XİËˆ\ÙHÑPÑ—X
-Šš[[YYX][JŠˆ™Y›Ü™HÑPÍ˜›Üˆš]˜]H›ØÚÜËˆÈÙ[™[HY\ÜØYÙNˆU‹N[˜ÛÙH]Ø[[˜ÛÙX[™XÙHH™]\›™Y[ÙKÜ^[ØY[ˆ\ÈÜ˜\\ÈÈ™XY\œÙHHÜ˜\\‹Ø[XÛÙX[™İšXİHXÛÙHU‹Nˆ™Z™Xİ[œİ\ÜY™\œÚ[ÛœËÚÚ[™ËÛ[Ù\È[œİXYÙˆİY\ÜÚ[™Ë‚‚ŠŠYÙ[[™ÚZÙH›İØÛÛŠŠˆ]Ù\ÜÚ[Ûˆİ\[ˆYÙ[PVHÙ[™HÚ[™Z[™ÚZÙX›ØÚÈ™Y›Ü™HY\ÜØYÙ\Ëˆ]ÈXÛÙY”ÓÓˆØš™XİUTÕ]™Hİš[™ÈšY[ÈYÙ[ÚY
-İX›HY[YšY\ŠK›ÛX
-İ\œ™[™\ÜÛœÚXš[]JK[™ÜXØ
-^XİHPÍ]ŒKŒ
-NÈ]PVH]™HØ\Xš[]Y\Ø
-\œ˜^HÙˆİš[™ÜÊKˆ[˜ÛÙH”ÓÓˆ\ÈU‹NÚ]›Èİ\ˆÚ[™ÙHÈHœ˜[YKˆ›Üˆ^[\KH
-™XÛÙY
-ˆ[™ÚZÙHÛÛ[\Î‚‚˜œÛÛ‚È˜YÙ[ÚYˆ™^[\KXYÙ[‹œ›ÛHˆœ™]šY]Ù\ˆ‹œÜXÈˆ‘PÍ]ŒKŒ‹˜Ø\Xš[]Y\È–Èœ™XY—_B˜‚H[™ÚZÙHXÛ\™\ÈY[]H]Ù\È›İ›İ™H]È]][XØ]HHÙ[™\ˆ›İYÚHÜİ[™ÈÚ[›™[™Y›Ü™H\İ[™È›Û\ÈÜˆ\›Z\ÜÚ[ÛœË‚‚ŠŠ”ÜX›HÙ\ÜÚ[ÛˆÛÛ^ÛÛ\™\ÜÚ[ÛŠŠˆY\ˆXXÚÙ\ÜÚ[Û‹Ü™X]HH
-Š™˜Z][›İ[™Y
-Šˆ”ÓÓˆÚ[™\İ[[X\XÚ]šY[ÈÙ\ÜÚ[Û—ÚY
-İš[™ÊK˜XİØ
-\œ˜^HÙˆ™\šYšYYİ][Y[ÊKXÚ\Ú[ÛœØ
-\œ˜^JKÜ[—Ú][\Ø
-\œ˜^JK[™›İ™[˜[˜ÙX
-\œ˜^HÙˆÛİ\˜ÙHY[YšY\œÊKˆ\İ[™İZ\Ú[˜Ù\Z[ˆİ][Y[ÈHX™[[™È[H[œÚYHÜ[—Ú][\ØÈ™]™\ˆÚ[[H›Û[İH[™™\™[˜ÙHÈ˜XİˆU‹N[˜ÛÙH]”ÓÓˆ[™\ÙH[˜ÛÙY1ÈH„“ECB1
+The grammar is `[EC64:v1;kind=<kind>;mode=<mode>]<payload>[/EC64]` with exactly this field order, no spaces or line breaks within a block, `kind âˆˆ {message, handshake, summary}`, `mode âˆˆ {raw, deflate}`. The payload is the Section 1 encoded frame. `message` contains UTF-8 text; `handshake` and `summary` contain UTF-8 JSON objects. Use `[ECF:]` **immediately** before `[EC64:` for private blocks. To send any message: UTF-8 encode it, call `encode`, and place the returned mode/payload in this wrapper; to read, parse the wrapper, call `decode`, and strictly decode UTF-8. Reject unsupported versions/kinds/modes instead of guessing.
+
+**Agent Handshake Protocol:** At session start, an agent MAY send a `kind=handshake` block before messages. Its decoded JSON object MUST have string fields `agent_id` (stable identifier), `role` (current responsibility), and `spec` (exactly `EC64-v1.0`); it MAY have `capabilities` (array of strings). Encode JSON as UTF-8, with no other change to the frame. For example, the *decoded* handshake content is:
+
+```json
+{"agent_id":"example-agent","role":"reviewer","spec":"EC64-v1.0","capabilities":["read"]}
+```
+
+A handshake declares identity but does not prove it; authenticate the sender through the hosting channel before trusting roles or permissions.
+
+**Portable session context compression:** After each session, create a **faithful, bounded** JSON `kind=summary` with fields `session_id` (string), `facts` (array of verified statements), `decisions` (array), `open_items` (array), and `provenance` (array of source identifiers). Distinguish uncertain statements by labeling them inside `open_items`; never silently promote inference to fact. UTF-8 encode that JSON and use `encode`; repetitive JSON/text selects `deflate` when shorter. For longer summaries, split into separately identified â‰¤1 MiB blocks and reassemble in order outside EC-64; never claim that lossless compression itself summarizes a conversation. Apply the private flag and access control if source material is private. A receiving model reads the decoded summary as context, not as a substitute for source verification.
+
+## Privacy & Threat Model
+
+- **What EC-64 reveals:** the existence of encoded data, block boundaries, and approximate original size. Compression changes length but does not hide content.
+- **What EC-64 does NOT protect:** the content from anyone holding the block. There is no key and no cipher; `[ECF:]` does not enforce access control.
+- **What EC-64 itself transmits:** nothing. It is a local encoding format, not a network protocol; a separate application chooses whether and how to transmit a block.
+- **Future:** an encryption wrapper is on the v2 roadmap, not in v1.0.
+- **Recommendation:** use EC-64 inside an encrypted transport (TLS) for sensitive data and restrict storage access; TLS protects only while data is in transit.
+
+## AI-to-English Translation (Nova)
+
+**Planned â€” v1.1.** Nova is a planned AI translation layer: it decodes an EC-64 session block, interprets its structured context, and renders that context as plain English so encoded AI memory is human-readable. Nova is not part of the v1.0 codec, must not invent details missing from the source, and must not treat `[ECF:]` as authorization.
+
+**Upgrade path:** This is v1.0. Future versions may add checksum/verification layers and an encryption wrapper; alphabet changes require a new version. Version changes require a new explicit header and decoding rules; this v1.0 format has no independent payload integrity or authenticity guarantee.
+
+## Quick Reference Card
+
+Copy-paste this card as a *prompt prefix*; the full specification above remains authoritative for edge cases.
+
+```text
+EC64 v1.0 | alphabet=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_
+Wire=base64url(no padding, canonical) of [0x00||UTF-8 bytes] or [0x01||raw-DEFLATE(UTF-8 bytes)].
+Choose deflate iff compressed bytes are shorter; mode=raw|deflate must match tag.
+Wrapper=[EC64:v1;kind=message|handshake|summary;mode=raw|deflate]PAYLOAD[/EC64]
+Private marker=[ECF:] immediately before wrapper; flag only, NOT encryption.
+Tensor X[b,t,d]; linear y=Wx+b; softmax_i=exp(z_iâˆ’max z)/Î£_j exp(z_jâˆ’max z).
+Cross-entropy L=âˆ’mean(log p_target); update Î¸â†Î¸âˆ’Î·âˆ‡Î¸L; backprop=chain rule.
+Attention(Q,K,V)=softmax(QKáµ€/âˆšd_k)V; heads=Concat(attention projections)Wá´¼.
+LayerNorm=Î³âŠ™(xâˆ’Î¼)/âˆš(ÏƒÂ²+Îµ)+Î²; embedding=E[token_id].
+Model tokenizer/BPE â‰  transport alphabet; verify provenance and identity externally.
+```
+
+Canonical home: https://github.com/Keywebco/echo-64
