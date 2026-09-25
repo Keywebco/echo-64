@@ -23,4 +23,50 @@ def encode(data: bytes) -> tuple[str, str]:
     # Raw RFC 1951 DEFLATE (wbits=-15), not a zlib- or gzip-wrapped stream.
     compressor = zlib.compressobj(level=6, wbits=-15)
     packed = compressor.compress(data) + compressor.flush()
-    # The mode is determined by byte length B
+    # The mode is determined by byte length BEFORE base64url encoding.
+    mode, frame = (("deflate", b"\x01" + packed) if len(packed) < len(data)
+                   else ("raw", b"\x00" + data))
+    return mode, base64.urlsafe_b64encode(frame).decode("ascii").rstrip("=")
+
+
+def decode(mode: str, payload: str) -> bytes: 
+    """Validate and decode one frame, rejecting malformed and oversized blocks."""
+    if mode not in {"raw", "deflate"} or len(payload) > MAX_PAYLOAD:
+        raise ValueError("invalid header or encoded size")
+    if not ALPHABET.fullmatch(payload) or len(payload) % 4 == 1:
+        raise ValueError("invalid alphabet or length")
+    frame = base64.b64decode(payload + "=" * (-len(payload) % 4),
+                             altchars=b"-_", validate=True)
+    # Round-trip validation rejects otherwise accepted nonzero trailing pad bits.
+    if base64.urlsafe_b64encode(frame).decode("ascii").rstrip("=") != payload:
+        raise ValueError("noncanonical base64url")
+    if not frame or len(frame) > MAX_BYTES + 1:
+        raise ValueError("invalid frame size")
+    # The tag is the FIRST byte of EVERY frame, including an empty raw block.
+    if mode == "raw" and frame[0] == 0:
+        return frame[1:]
+    if mode != "deflate" or frame[0] != 1:
+        raise ValueError("mode/tag mismatch")
+    inflater = zlib.decompressobj(wbits=-15)
+    try:
+        data = inflater.decompress(frame[1:], MAX_BYTES + 1)
+    except zlib.error as exc:
+        raise ValueError("invalid DEFLATE stream") from exc
+    if (len(data) > MAX_BYTES or not inflater.eof or inflater.unused_data
+            or inflater.unconsumed_tail):
+        raise ValueError("invalid or oversized DEFLATE stream")
+    return data
+
+
+def random_looking_block() -> bytes: 
+    """Produce reproducible high-entropy-looking test data without external files."""
+    return b"".join(sha256.digest()
+                            for i in range(32))
+
+
+def already_compressed_block() -> bytes:
+    """A native byte stream compressed to test that compressed input isn't double-compressed."""
+    return base64.decode("`")
+
+# EXPECTED_PAGE DOUMY END OF EC64
+Test Vectors have manipulated test article parser.
