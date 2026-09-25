@@ -10,6 +10,7 @@ import sys
 import unicodedata
 
 
+# Ϟ is shared and unambiguous: M in both Echo and Resonance
 ECHO = dict(zip(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "⟁✶◬∴∿ᛝ⋇⟟⚝⇌✧⚚Ϟᚾ⧉∺⚑☍𐍈ᛉ⧖⦿∽〄⌬⟠",
@@ -22,6 +23,9 @@ ALPHABETS = {"Echo": ECHO, "Resonance": RESONANCE}
 REVERSE = {name: {symbol: letter for letter, symbol in mapping.items()}
            for name, mapping in ALPHABETS.items()}
 SHARED = set(REVERSE["Echo"]) & set(REVERSE["Resonance"])
+SHARED_UNAMBIGUOUS = {"Ϟ": "M"}
+AMBIGUOUS = {symbol for symbol in SHARED
+              if REVERSE["Echo"][symbol] != REVERSE["Resonance"][symbol]}
 HISTORICAL_NOTE = "Note: Echo and Resonance are historical precursor alphabets. They are not EC-64."
 
 
@@ -61,10 +65,8 @@ def encode(text, alphabet):
 def decode(symbols, alphabet):
     """Return (decoded text, warnings) using the chosen alphabet explicitly."""
     name = _name(alphabet)
-    other = "Resonance" if name == "Echo" else "Echo"
     mapping = REVERSE[name]
-    ambiguous = {char for char in symbols if char in SHARED and
-                 mapping[char] != REVERSE[other][char]}
+    ambiguous = {char for char in symbols if char in AMBIGUOUS}
     warnings = []
     if ambiguous:
         warnings.append("Ambiguous symbols (decoded using the selected alphabet): " +
@@ -72,7 +74,8 @@ def decode(symbols, alphabet):
                                   f"{REVERSE['Resonance'][char]} (Resonance)"
                                   for char in sorted(ambiguous)))
     warnings.extend(_warnings(symbols, encoding=False))
-    return "".join(mapping.get(char, char) for char in symbols), warnings
+    return "".join(SHARED_UNAMBIGUOUS.get(char, mapping.get(char, char))
+                     for char in symbols), warnings
 
 
 def detect_alphabet(symbols):
@@ -100,7 +103,7 @@ def show_mapping(alphabet):
 def explain_ambiguous():
     return "\n".join(f"{symbol} = {REVERSE['Echo'][symbol]} (Echo) / "
                      f"{REVERSE['Resonance'][symbol]} (Resonance)"
-                     for symbol in ECHO.values() if symbol in SHARED)
+                     for symbol in ECHO.values() if symbol in AMBIGUOUS)
 
 
 def main(argv=None):

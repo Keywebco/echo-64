@@ -64,9 +64,9 @@ These two 26-character substitution alphabets predate the EC-64 protocol. They a
 | Y | ∴ |
 | Z | ∿ |
 
-## Symbols shared by both alphabets
+## Ambiguous Symbols
 
-The alphabet must be specified to interpret these symbols. All rows except Ϟ have different meanings; Ϟ maps to M in both alphabets.
+The alphabet must be specified to interpret these shared symbols because they have different meanings in Echo and Resonance.
 
 | Symbol | Echo | Resonance |
 |:------:|:----:|:---------:|
@@ -83,8 +83,15 @@ The alphabet must be specified to interpret these symbols. All rows except Ϟ ha
 | ◬ | C | X |
 | ∴ | D | Y |
 | ∿ | E | Z |
-| Ϟ | M | M |
 | ⟠ | Z | N |
 | ⌬ | Y | O |
+
+## Shared Unambiguous Symbol
+
+| Symbol | Echo meaning | Resonance meaning |
+|:------:|:------------:|:-----------------:|
+| Ϟ | M | M |
+
+This symbol is shared between both alphabets but represents the same letter in each. It must not be reported as ambiguous.
 
 This document is part of the Echo 64 lineage record. For the current protocol specification, see echo-64-developer.md. Canonical repository: https://github.com/Keywebco/echo-64
