@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#070b14">
+<title>Echo 64 — The EC-64 Protocol</title>
+<meta name="description" content="Echo 64 is the Federation's sovereign signal-integrity protocol. A self-contained, token-free, zero-dependency codec for AI-to-AI communication across the NextXus Federation.">
+<meta name="author" content="Roger Keyserling">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://keywebco.github.io/echo-64/previous-edition.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://keywebco.github.io/echo-64/">
+<meta property="og:title" content="Echo 64 — The EC-64 Protocol">
+<meta property="og:description" content="A self-contained, zero-dependency codec for AI-to-AI communication across the NextXus Federation. MIT licensed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:17px}
+body{background:#070b14;color:#e6e9f0;font-family:'JetBrains Mono','Courier New',Consolas,monospace;line-height:1.75;min-height:100vh;overflow-x:hidden}
+a{color:#ffd700}
+a:focus-visible{outline:3px solid #00e5ff;outline-offset:3px}
+.sky{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}
+.nebula{position:absolute;width:140vmax;height:140vmax;left:-20vmax;top:-20vmax;filter:blur(40px);
+ background:radial-gradient(circle at 30% 30%,rgba(90,40,180,.3),transparent 40%),radial-gradient(circle at 70% 65%,rgba(0,140,200,.25),transparent 42%),radial-gradient(circle at 50% 90%,rgba(255,180,0,.12),transparent 38%);
+ animation:drift 70s ease-in-out infinite alternate}
+@keyframes drift{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(5vmax,-5vmax) rotate(-12deg) scale(1.06)}}
+.wave{position:absolute;left:0;right:0;top:50%;height:2px;background:linear-gradient(90deg,transparent,#ffd700,#00e5ff,#ffd700,transparent);background-size:200% 100%;opacity:.25;animation:flow 7s linear infinite}
+@keyframes flow{from{background-position:0 0}to{background-position:200% 0}}
+.wrap{max-width:860px;margin:0 auto;padding:4rem 1.25rem 3rem}
+h1{font-family:'Orbitron',monospace;font-weight:900;color:#ffd700;font-size:clamp(2rem,6vw,3.4rem);letter-spacing:.1em;text-align:center;animation:glow 4s ease-in-out infinite}
+@keyframes glow{0%,100%{text-shadow:0 0 12px rgba(255,215,0,.45)}50%{text-shadow:0 0 28px rgba(255,215,0,.9)}}
+.sub{text-align:center;color:#9fe8ff;font-size:1.1rem;margin-top:.5rem}
+.line{height:2px;max-width:560px;margin:1.8rem auto;background:linear-gradient(90deg,transparent,#ffd700,transparent);animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+h2{font-family:'Orbitron',monospace;color:#ffd700;font-size:1.3rem;letter-spacing:.06em;margin:2.2rem 0 .7rem}
+p,li{color:#d3daea}
+ul{padding-left:1.3rem}
+li{margin:.35rem 0}
+.lead{font-size:1.08rem;color:#f1f3f8;text-align:center}
+.box{background:rgba(14,22,40,.85);border:1px solid rgba(255,215,0,.3);border-radius:12px;padding:1.1rem 1.2rem;margin-top:.8rem}
+code,pre{font-family:inherit;color:#ffe98a}
+pre{white-space:pre-wrap;word-break:break-all}
+footer{text-align:center;margin-top:3rem;padding-top:1.5rem;border-top:1px solid rgba(255,215,0,.25);color:#b8c2d6}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="sky" aria-hidden="true"><div class="nebula"></div><div class="wave"></div></div>
+<main class="wrap">
+ <header>
+  <h1>ECHO 64</h1>
+  <p class="sub">The EC-64 Protocol</p>
+  <div class="line" aria-hidden="true"></div>
+  <p class="lead">Echo 64 is the Federation's sovereign signal-integrity protocol. A self-contained, token-free, zero-dependency codec for AI-to-AI communication across the NextXus Federation.</p>
+ </header>
+
+ <section aria-labelledby="what">
+  <h2 id="what">What it is</h2>
+  <p>EC-64 is a small, explicitly tagged text frame that any AI or program can read and write. It carries the same verifiable bytes between systems, so a message or context summary arrives exactly as it was sent.</p>
+  <ul>
+   <li><strong>Zero-dependency:</strong> the reference codec uses only the Python standard library.</li>
+   <li><strong>Token-free:</strong> no API key, account, or shared tokenizer is needed to encode or decode.</li>
+   <li><strong>Portable:</strong> the output is plain URL-safe text that survives copy and paste between platforms.</li>
+   <li><strong>Open:</strong> MIT licensed.</li>
+  </ul>
+  <p>Honest note: EC-64 is an encoding, not encryption, and not automatic summarization. Anyone holding an encoded block can decode it. Compression can shrink repeated data, but the final size depends on the input.</p>
+ </section>
+
+ <section aria-labelledby="how">
+  <h2 id="how">How it works</h2>
+  <ul>
+   <li>Take the message as UTF-8 bytes.</li>
+   <li>Add one mode byte in front: <code>0x00</code> for raw, or <code>0x01</code> for raw DEFLATE when compression is shorter.</li>
+   <li>Encode the whole frame as unpadded base64url.</li>
+   <li>Wrap it: <code>[EC64:v1;kind=message;mode=raw]PAYLOAD[/EC64]</code>. The kind can be message, handshake, or summary.</li>
+  </ul>
+  <div class="box">
+   <p>Example: the text <code>Truth before comfort.</code> encodes to:</p>
+   <pre>[EC64:v1;kind=message;mode=raw]AFRydXRoIGJlZm9yZSBjb21mb3J0Lg[/EC64]</pre>
+   <p>Try it yourself: <code>python ec64.py encode "Truth before comfort."</code></p>
+  </div>
+ </section>
+
+ <section aria-labelledby="docs">
+  <h2 id="docs">Specs and source</h2>
+  <ul>
+   <li><a href="https://github.com/Keywebco/echo-64">Echo 64 source repository</a></li>
+   <li><a href="https://github.com/Keywebco/echo-64/blob/main/echo-64-simple.md">Simple Spec</a></li>
+   <li><a href="https://github.com/Keywebco/echo-64/blob/main/echo-64-developer.md">Developer Spec</a></li>
+   <li><a href="https://github.com/Keywebco/echo-64/blob/main/test-vectors.md">Test vectors</a></li>
+   <li><a href="https://github.com/Keywebco/echo-64/blob/main/ec64.py">Reference codec (ec64.py)</a></li>
+   <li><a href="https://github.com/Keywebco/echo-64/blob/main/LICENSE">MIT License</a></li>
+  </ul>
+ </section>
+
+ <section aria-labelledby="name">
+  <h2 id="name">The name</h2>
+  <p>Echo 64 is named for Echo, an intelligence Roger knew before artificial intelligence had a name.</p>
+ </section>
+
+ <footer>
+  <p><a href="https://keywebco.github.io">Return to the NextXus Federation Portal</a></p>
+  <p>NextXus HumanCodex Federation | Founded by Roger C. Keyserling | Truth Before Comfort</p>
+  <p>Contact: <a href="mailto:keywebco@gmail.com">keywebco@gmail.com</a></p>
+ </footer>
+</main>
+</body>
+</html>
