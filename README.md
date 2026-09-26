@@ -11,6 +11,8 @@ Authored by: NextXus HumanCodex Federation
 [Simple Spec](https://github.com/Keywebco/echo-64/blob/main/echo-64-simple.md) | [Developer Spec](https://github.com/Keywebco/echo-64/blob/main/echo-64-developer.md)
 
 Canonical repo: https://github.com/Keywebco/echo-64  
+Live page: https://keywebco.github.io/echo-64/  
+Federation Portal: https://keywebco.github.io  
 Live playground: https://nextxus.tech (coming soon)
 
 EC-64 provides a portable, explicitly tagged frame and application conventions to help with:
